@@ -3,23 +3,40 @@
     "sequencia": 1,
     "tipo": "mensagem",
     "comentario": "Pergunta inicial para o usuário",
-    "mensagem": "Oi! Isso é a primeira interação",
-    "sleep_ms": 5000,
+    "mensagem": "Olá seja bem vindo a clinica!",
     "goto": 2
   },
   {
     "sequencia": 2,
     "tipo": "mensagem",
     "comentario": "Pergunta segunda para o usuário",
-    "mensagem": "Oi! Segunda interação.",
-    "sleep_ms": 5000,
+    "mensagem": "Escolha um dos convenios UNIMED ou PARTICULAR",
     "goto": 3
   },
   {
     "sequencia": 3,
+    "tipo": "opcao",
+    "retorno": "$RETORNO_VARIAVEL",
+    "opcoes": {
+      "1,unimed,UNIMED": 4,
+      "2,particular,PARTICULAR": 4
+      },
+    "prompt" : "",
+    "goto": 5
+    },
+  {
+    "sequencia": 4,
     "tipo": "mensagem",
-    "comentario": "Ainda não temos bloco de opcoes; por enquanto só mensagens em cadeia",
-    "mensagem": "Qual seria seu convênio? (mais tarde vira bloco de opções)",
+    "comentario": "",
+    "mensagem": "Escolha de usuario {{$RETORNO_VARIAVEL}} texto do usuario {{$USUARIO.TEXTO}}",
+    "sleep_ms": 5000,
     "goto": "encerra"
+  },
+  {
+    "sequencia": 5,
+    "tipo": "mensagem",
+    "comentario": "",
+    "mensagem": "Opcao invalida :c texto do usuario {{$USUARIO.TEXTO}}",
+    "goto": 2
   }
 ]
