@@ -1,0 +1,25 @@
+[
+  {
+    "sequencia": 1,
+    "tipo": "mensagem",
+    "comentario": "Pergunta inicial para o usuário",
+    "mensagem": "Oi! Isso é a primeira interação",
+    "sleep_ms": 5000,
+    "goto": 2
+  },
+  {
+    "sequencia": 2,
+    "tipo": "mensagem",
+    "comentario": "Pergunta segunda para o usuário",
+    "mensagem": "Oi! Segunda interação.",
+    "sleep_ms": 5000,
+    "goto": 3
+  },
+  {
+    "sequencia": 3,
+    "tipo": "mensagem",
+    "comentario": "Ainda não temos bloco de opcoes; por enquanto só mensagens em cadeia",
+    "mensagem": "Qual seria seu convênio? (mais tarde vira bloco de opções)",
+    "goto": "encerra"
+  }
+]
