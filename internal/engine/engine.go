@@ -76,11 +76,17 @@ func (e *Engine) HandleEventStream(
 	input := interactions.Input{
 		UserText: in.Mensagem.Texto,
 	}
+	inputConsumed := false
 
 	for {
 		st, ok := e.Flow.Steps[sess.CurrentSeq]
 		if !ok {
 			return fmt.Errorf("sequencia %d não existe no fluxo", sess.CurrentSeq)
+		}
+
+		if st.Tipo == flow.StepOption && inputConsumed {
+			e.Store.Save(sess)
+			return nil
 		}
 
 		handler, ok := e.handlers[st.Tipo]
@@ -118,6 +124,10 @@ func (e *Engine) HandleEventStream(
 			sess.CurrentSeq = e.Flow.StartSeq
 			e.Store.Save(sess)
 			return nil
+		}
+
+		if st.Tipo == flow.StepOption {
+			inputConsumed = true
 		}
 
 		sess.CurrentSeq = result.NextSeq
