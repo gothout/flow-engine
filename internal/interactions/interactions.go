@@ -8,51 +8,51 @@ import (
 	"flow-engine/internal/session"
 )
 
-type Input struct {
-	UserText string
+type Entrada struct {
+	TextoUsuario string
 }
 
-type Result struct {
-	Message string
-	NextSeq int
-	Done    bool
-	Sleep   time.Duration
+type Resultado struct {
+	Mensagem   string
+	ProxSeq    int
+	Finalizado bool
+	Espera     time.Duration
 }
 
-type Handler interface {
+type Manipulador interface {
 	Type() flow.StepType
-	Execute(step flow.Step, sess *session.Session, input Input) (Result, error)
+	Execute(passo flow.Step, sessao *session.Session, entrada Entrada) (Resultado, error)
 }
 
-func normalizeVarName(name string) string {
-	return strings.TrimPrefix(strings.TrimSpace(name), "$")
+func normalizarNomeVariavel(nome string) string {
+	return strings.TrimPrefix(strings.TrimSpace(nome), "$")
 }
 
-func renderTemplate(text string, input Input, vars map[string]string) string {
-	out := text
-	out = strings.ReplaceAll(out, "{{$USUARIO.TEXTO}}", input.UserText)
-	for key, value := range vars {
-		placeholder := "{{$" + key + "}}"
-		out = strings.ReplaceAll(out, placeholder, value)
+func renderizarTemplate(texto string, entrada Entrada, variaveis map[string]string) string {
+	saida := texto
+	saida = strings.ReplaceAll(saida, "{{$USUARIO.TEXTO}}", entrada.TextoUsuario)
+	for chave, valor := range variaveis {
+		marcador := "{{$" + chave + "}}"
+		saida = strings.ReplaceAll(saida, marcador, valor)
 	}
-	return out
+	return saida
 }
 
-func matchOption(optionsKey, userText string) (string, bool) {
-	tokens := strings.Split(optionsKey, ",")
-	if len(tokens) == 0 {
+func compararOpcao(chaveOpcoes, textoUsuario string) (string, bool) {
+	partes := strings.Split(chaveOpcoes, ",")
+	if len(partes) == 0 {
 		return "", false
 	}
-	trimmed := make([]string, 0, len(tokens))
-	for _, token := range tokens {
-		val := strings.TrimSpace(token)
-		if val != "" {
-			trimmed = append(trimmed, val)
+	limpas := make([]string, 0, len(partes))
+	for _, parte := range partes {
+		valor := strings.TrimSpace(parte)
+		if valor != "" {
+			limpas = append(limpas, valor)
 		}
 	}
-	for _, token := range trimmed {
-		if strings.EqualFold(token, strings.TrimSpace(userText)) {
-			return trimmed[len(trimmed)-1], true
+	for _, token := range limpas {
+		if strings.EqualFold(token, strings.TrimSpace(textoUsuario)) {
+			return limpas[len(limpas)-1], true
 		}
 	}
 	return "", false

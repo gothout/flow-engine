@@ -13,12 +13,12 @@ func (m Message) Type() flow.StepType {
 	return flow.StepMessage
 }
 
-func (m Message) Execute(step flow.Step, sess *session.Session, input Input) (Result, error) {
-	msg := renderTemplate(step.Mensagem, input, sess.Vars)
-	return Result{
-		Message: msg,
-		NextSeq: step.Goto.Seq,
-		Done:    step.Goto.IsEnd,
-		Sleep:   time.Duration(step.SleepMs) * time.Millisecond,
+func (m Message) Execute(passo flow.Step, sessao *session.Session, entrada Entrada) (Resultado, error) {
+	mensagem := renderizarTemplate(passo.Mensagem, entrada, sessao.Variaveis)
+	return Resultado{
+		Mensagem:   mensagem,
+		ProxSeq:    passo.Goto.Sequencia,
+		Finalizado: passo.Goto.Encerra,
+		Espera:     time.Duration(passo.SleepMs) * time.Millisecond,
 	}, nil
 }

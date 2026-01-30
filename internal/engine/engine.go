@@ -11,13 +11,13 @@ import (
 )
 
 type Engine struct {
-	Flow     *flow.Flow
-	Store    session.Repository
-	handlers map[flow.StepType]interactions.Handler
+	Fluxo         *flow.Flow
+	Repositorio   session.Repository
+	manipuladores map[flow.StepType]interactions.Manipulador
 }
 
 type IncomingEvent struct {
-	SessionID string `json:"session_id,omitempty"`
+	IDSessao  string `json:"session_id,omitempty"`
 	Numero    string `json:"numero,omitempty"`
 	Protocolo string `json:"protocolo,omitempty"`
 	Mensagem  struct {
@@ -26,142 +26,142 @@ type IncomingEvent struct {
 }
 
 type OutMessage struct {
-	SessionID string            `json:"session_id"`
-	Texto     string            `json:"texto"`
-	Done      bool              `json:"done,omitempty"`
-	Vars      map[string]string `json:"vars,omitempty"`
-	Error     string            `json:"error,omitempty"`
+	IDSessao   string            `json:"session_id"`
+	Texto      string            `json:"texto"`
+	Finalizado bool              `json:"done,omitempty"`
+	Variaveis  map[string]string `json:"vars,omitempty"`
+	Erro       string            `json:"error,omitempty"`
 }
 
-func New(f *flow.Flow, st *session.Store) *Engine {
+func New(fluxo *flow.Flow, repositorio *session.Store) *Engine {
 	eng := &Engine{
-		Flow:  f,
-		Store: st,
+		Fluxo:       fluxo,
+		Repositorio: repositorio,
 	}
-	eng.handlers = map[flow.StepType]interactions.Handler{
+	eng.manipuladores = map[flow.StepType]interactions.Manipulador{
 		flow.StepMessage: interactions.Message{},
 		flow.StepOption:  interactions.Option{},
 	}
 	return eng
 }
 
-func resolveSessionID(in IncomingEvent) (string, error) {
-	if in.SessionID != "" {
-		return in.SessionID, nil
+func resolverIDSessao(evento IncomingEvent) (string, error) {
+	if evento.IDSessao != "" {
+		return evento.IDSessao, nil
 	}
-	if in.Numero == "" || in.Protocolo == "" {
+	if evento.Numero == "" || evento.Protocolo == "" {
 		return "", fmt.Errorf("session_id ausente e numero/protocolo incompletos")
 	}
-	return in.Numero + "|" + in.Protocolo, nil
+	return evento.Numero + "|" + evento.Protocolo, nil
 }
 
 func (e *Engine) HandleEventStream(
-	ctx context.Context,
-	in IncomingEvent,
-	emit func(OutMessage) error,
+	contexto context.Context,
+	evento IncomingEvent,
+	emitir func(OutMessage) error,
 ) error {
-	if ctx == nil {
-		ctx = context.Background()
+	if contexto == nil {
+		contexto = context.Background()
 	}
-	if emit == nil {
+	if emitir == nil {
 		return fmt.Errorf("emit não pode ser nil")
 	}
 
-	sid, err := resolveSessionID(in)
+	idSessao, err := resolverIDSessao(evento)
 	if err != nil {
 		return err
 	}
 
-	sess := e.Store.GetOrCreate(sid, e.Flow.StartSeq)
-	input := interactions.Input{
-		UserText: in.Mensagem.Texto,
+	sessao := e.Repositorio.GetOrCreate(idSessao, e.Fluxo.SequenciaInicial)
+	entrada := interactions.Entrada{
+		TextoUsuario: evento.Mensagem.Texto,
 	}
-	inputConsumed := false
+	entradaConsumida := false
 
 	for {
-		st, ok := e.Flow.Steps[sess.CurrentSeq]
+		passo, ok := e.Fluxo.Passos[sessao.SequenciaAtual]
 		if !ok {
-			return fmt.Errorf("sequencia %d não existe no fluxo", sess.CurrentSeq)
+			return fmt.Errorf("sequencia %d não existe no fluxo", sessao.SequenciaAtual)
 		}
 
-		if st.Tipo == flow.StepOption && inputConsumed {
-			e.Store.Save(sess)
+		if passo.Tipo == flow.StepOption && entradaConsumida {
+			e.Repositorio.Save(sessao)
 			return nil
 		}
 
-		handler, ok := e.handlers[st.Tipo]
+		manipulador, ok := e.manipuladores[passo.Tipo]
 		if !ok {
-			return fmt.Errorf("tipo %s não registrado", st.Tipo)
+			return fmt.Errorf("tipo %s não registrado", passo.Tipo)
 		}
 
-		result, err := handler.Execute(st, sess, input)
+		resultado, err := manipulador.Execute(passo, sessao, entrada)
 		if err != nil {
 			return err
 		}
 
-		if result.Message != "" {
+		if resultado.Mensagem != "" {
 			msg := OutMessage{
-				SessionID: sid,
-				Texto:     result.Message,
-				Vars:      sess.Vars,
+				IDSessao:  idSessao,
+				Texto:     resultado.Mensagem,
+				Variaveis: sessao.Variaveis,
 			}
-			if err := emit(msg); err != nil {
+			if err := emitir(msg); err != nil {
 				return fmt.Errorf("emit falhou: %w", err)
 			}
 		}
 
-		if result.Sleep > 0 {
-			if err := sleep(ctx, result.Sleep); err != nil {
+		if resultado.Espera > 0 {
+			if err := dormir(contexto, resultado.Espera); err != nil {
 				return fmt.Errorf("sleep cancelado/erro: %w", err)
 			}
 		}
 
-		if result.Done {
-			if err := emit(OutMessage{SessionID: sid, Done: true}); err != nil {
+		if resultado.Finalizado {
+			if err := emitir(OutMessage{IDSessao: idSessao, Finalizado: true}); err != nil {
 				return fmt.Errorf("emit done falhou: %w", err)
 			}
 
-			sess.CurrentSeq = e.Flow.StartSeq
-			e.Store.Save(sess)
+			sessao.SequenciaAtual = e.Fluxo.SequenciaInicial
+			e.Repositorio.Save(sessao)
 			return nil
 		}
 
-		pauseAfterMessage := inputConsumed && st.Tipo == flow.StepMessage
+		pausarAposMensagem := entradaConsumida && passo.Tipo == flow.StepMessage
 
-		if st.Tipo == flow.StepOption {
-			inputConsumed = true
+		if passo.Tipo == flow.StepOption {
+			entradaConsumida = true
 		}
 
-		sess.CurrentSeq = result.NextSeq
-		e.Store.Save(sess)
-		if pauseAfterMessage {
+		sessao.SequenciaAtual = resultado.ProxSeq
+		e.Repositorio.Save(sessao)
+		if pausarAposMensagem {
 			return nil
 		}
 	}
 }
 
 // Mantém seu HandleEvent antigo (compat), só que agora usa o stream por baixo
-func (e *Engine) HandleEvent(ctx context.Context, in IncomingEvent) ([]OutMessage, error) {
-	out := make([]OutMessage, 0, 4)
-	err := e.HandleEventStream(ctx, in, func(m OutMessage) error {
-		out = append(out, m)
+func (e *Engine) HandleEvent(contexto context.Context, evento IncomingEvent) ([]OutMessage, error) {
+	saida := make([]OutMessage, 0, 4)
+	err := e.HandleEventStream(contexto, evento, func(m OutMessage) error {
+		saida = append(saida, m)
 		return nil
 	})
-	return out, err
+	return saida, err
 }
 
-// sleep para aguardar antes de seguir funcao
-func sleep(ctx context.Context, d time.Duration) error {
-	if d <= 0 {
+// dormir para aguardar antes de seguir funcao
+func dormir(ctx context.Context, duracao time.Duration) error {
+	if duracao <= 0 {
 		return nil
 	}
-	t := time.NewTimer(d)
-	defer t.Stop()
+	temporizador := time.NewTimer(duracao)
+	defer temporizador.Stop()
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.C:
+	case <-temporizador.C:
 		return nil
 	}
 }

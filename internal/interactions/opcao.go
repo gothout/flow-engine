@@ -13,24 +13,24 @@ func (o Option) Type() flow.StepType {
 	return flow.StepOption
 }
 
-func (o Option) Execute(step flow.Step, sess *session.Session, input Input) (Result, error) {
-	varName := normalizeVarName(step.Retorno)
-	if varName == "" {
-		return Result{}, fmt.Errorf("retorno vazio para opcao %d", step.Sequencia)
+func (o Option) Execute(passo flow.Step, sessao *session.Session, entrada Entrada) (Resultado, error) {
+	nomeVariavel := normalizarNomeVariavel(passo.Retorno)
+	if nomeVariavel == "" {
+		return Resultado{}, fmt.Errorf("retorno vazio para opcao %d", passo.Sequencia)
 	}
 
-	if sess.Vars == nil {
-		sess.Vars = make(map[string]string)
+	if sessao.Variaveis == nil {
+		sessao.Variaveis = make(map[string]string)
 	}
-	delete(sess.Vars, varName)
+	delete(sessao.Variaveis, nomeVariavel)
 
-	for optionKey, nextSeq := range step.Opcoes {
-		if canonical, ok := matchOption(optionKey, input.UserText); ok {
-			sess.Vars[varName] = canonical
-			return Result{NextSeq: nextSeq}, nil
+	for chaveOpcao, proximaSeq := range passo.Opcoes {
+		if canonico, ok := compararOpcao(chaveOpcao, entrada.TextoUsuario); ok {
+			sessao.Variaveis[nomeVariavel] = canonico
+			return Resultado{ProxSeq: proximaSeq}, nil
 		}
 	}
 
 	// opcao invalida vai para o goto definido
-	return Result{NextSeq: step.Goto.Seq}, nil
+	return Resultado{ProxSeq: passo.Goto.Sequencia}, nil
 }

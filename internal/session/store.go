@@ -7,99 +7,99 @@ import (
 )
 
 type Repository interface {
-	GetOrCreate(id string, startSeq int) *Session
-	Save(sess *Session)
+	GetOrCreate(idSessao string, sequenciaInicial int) *Session
+	Save(sessao *Session)
 }
 
 type Encoder interface {
-	Encode(sess *Session) ([]byte, error)
+	Encode(sessao *Session) ([]byte, error)
 }
 
 type Session struct {
-	ID          string
-	CurrentSeq  int
-	Vars        map[string]string
-	LastUpdated time.Time
+	IDSessao       string
+	SequenciaAtual int
+	Variaveis      map[string]string
+	AtualizadoEm   time.Time
 }
 
 type Snapshot struct {
-	ID          string            `json:"id"`
-	CurrentSeq  int               `json:"current_seq"`
-	Vars        map[string]string `json:"vars,omitempty"`
-	LastUpdated time.Time         `json:"last_updated"`
+	ID             string            `json:"id"`
+	SequenciaAtual int               `json:"current_seq"`
+	Variaveis      map[string]string `json:"vars,omitempty"`
+	AtualizadoEm   time.Time         `json:"last_updated"`
 }
 
 func (s *Session) Snapshot() Snapshot {
 	return Snapshot{
-		ID:          s.ID,
-		CurrentSeq:  s.CurrentSeq,
-		Vars:        s.Vars,
-		LastUpdated: s.LastUpdated,
+		ID:             s.IDSessao,
+		SequenciaAtual: s.SequenciaAtual,
+		Variaveis:      s.Variaveis,
+		AtualizadoEm:   s.AtualizadoEm,
 	}
 }
 
 type JSONEncoder struct{}
 
-func (JSONEncoder) Encode(sess *Session) ([]byte, error) {
-	return json.Marshal(sess.Snapshot())
+func (JSONEncoder) Encode(sessao *Session) ([]byte, error) {
+	return json.Marshal(sessao.Snapshot())
 }
 
 type Store struct {
-	mu   sync.RWMutex
-	data map[string]*Session
-	ttl  time.Duration
+	mu        sync.RWMutex
+	dados     map[string]*Session
+	tempoVida time.Duration
 }
 
 func NewStore(ttl time.Duration) *Store {
 	return &Store{
-		data: make(map[string]*Session),
-		ttl:  ttl,
+		dados:     make(map[string]*Session),
+		tempoVida: ttl,
 	}
 }
 
-func (s *Store) GetOrCreate(id string, startSeq int) *Session {
-	now := time.Now()
+func (s *Store) GetOrCreate(idSessao string, sequenciaInicial int) *Session {
+	agora := time.Now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// limpeza simples
-	if s.ttl > 0 {
-		for k, v := range s.data {
-			if now.Sub(v.LastUpdated) > s.ttl {
-				delete(s.data, k)
+	if s.tempoVida > 0 {
+		for chave, sessao := range s.dados {
+			if agora.Sub(sessao.AtualizadoEm) > s.tempoVida {
+				delete(s.dados, chave)
 			}
 		}
 	}
 
-	if sess, ok := s.data[id]; ok {
-		sess.LastUpdated = now
-		return sess
+	if sessao, ok := s.dados[idSessao]; ok {
+		sessao.AtualizadoEm = agora
+		return sessao
 	}
 
-	sess := &Session{
-		ID:          id,
-		CurrentSeq:  startSeq,
-		Vars:        make(map[string]string),
-		LastUpdated: now,
+	sessao := &Session{
+		IDSessao:       idSessao,
+		SequenciaAtual: sequenciaInicial,
+		Variaveis:      make(map[string]string),
+		AtualizadoEm:   agora,
 	}
-	s.data[id] = sess
-	return sess
+	s.dados[idSessao] = sessao
+	return sessao
 }
 
-func (s *Store) Save(sess *Session) {
+func (s *Store) Save(sessao *Session) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	sess.LastUpdated = time.Now()
-	s.data[sess.ID] = sess
+	sessao.AtualizadoEm = time.Now()
+	s.dados[sessao.IDSessao] = sessao
 }
 
-func (s *Store) Snapshot(id string) (Snapshot, bool) {
+func (s *Store) Snapshot(idSessao string) (Snapshot, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	sess, ok := s.data[id]
+	sessao, ok := s.dados[idSessao]
 	if !ok {
 		return Snapshot{}, false
 	}
-	return sess.Snapshot(), true
+	return sessao.Snapshot(), true
 }
