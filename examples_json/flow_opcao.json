@@ -1,0 +1,31 @@
+[
+  {
+    "sequencia": 1,
+    "tipo": "mensagem",
+    "comentario": "inicio do fluxo",
+    "mensagem": "Escolha 1 (Unimed) ou 2 (Particular).",
+    "goto": 2
+  },
+  {
+    "sequencia": 2,
+    "tipo": "opcao",
+    "retorno": "$RETORNO_VARIAVEL",
+    "opcoes": {
+      "1,unimed,UNIMED": 3,
+      "2,particular,PARTICULAR": 3
+    },
+    "goto": 4
+  },
+  {
+    "sequencia": 3,
+    "tipo": "mensagem",
+    "mensagem": "Escolha de usuario {{$RETORNO_VARIAVEL}} texto do usuario {{$USUARIO.TEXTO}}",
+    "goto": "encerra"
+  },
+  {
+    "sequencia": 4,
+    "tipo": "mensagem",
+    "mensagem": "Opcao invalida :c texto do usuario {{$USUARIO.TEXTO}}",
+    "goto": "encerra"
+  }
+]
