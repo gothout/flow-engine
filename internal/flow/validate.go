@@ -2,50 +2,50 @@ package flow
 
 import "fmt"
 
-func Validate(f *Flow) error {
-	if f == nil || len(f.Steps) == 0 {
+func Validate(fluxo *Flow) error {
+	if fluxo == nil || len(fluxo.Passos) == 0 {
 		return fmt.Errorf("flow vazio")
 	}
-	if _, ok := f.Steps[f.StartSeq]; !ok {
-		return fmt.Errorf("start seq %d nao existe", f.StartSeq)
+	if _, ok := fluxo.Passos[fluxo.SequenciaInicial]; !ok {
+		return fmt.Errorf("start seq %d nao existe", fluxo.SequenciaInicial)
 	}
-	for seq, st := range f.Steps {
-		if seq <= 0 {
-			return fmt.Errorf("sequencia invalida: %d", seq)
+	for sequencia, passo := range fluxo.Passos {
+		if sequencia <= 0 {
+			return fmt.Errorf("sequencia invalida: %d", sequencia)
 		}
-		if st.SleepMs < 0 {
-			return fmt.Errorf("step %d sleep_ms negativo", seq)
+		if passo.SleepMs < 0 {
+			return fmt.Errorf("step %d sleep_ms negativo", sequencia)
 		}
-		switch st.Tipo {
+		switch passo.Tipo {
 		case StepMessage:
-			if st.Mensagem == "" {
-				return fmt.Errorf("step %d (mensagem) sem campo mensagem", seq)
+			if passo.Mensagem == "" {
+				return fmt.Errorf("step %d (mensagem) sem campo mensagem", sequencia)
 			}
-			if !st.Goto.IsEnd {
-				if _, ok := f.Steps[st.Goto.Seq]; !ok {
-					return fmt.Errorf("step %d goto %d nao existe", seq, st.Goto.Seq)
+			if !passo.Goto.Encerra {
+				if _, ok := fluxo.Passos[passo.Goto.Sequencia]; !ok {
+					return fmt.Errorf("step %d goto %d nao existe", sequencia, passo.Goto.Sequencia)
 				}
 			}
 		case StepOption:
-			if st.Retorno == "" {
-				return fmt.Errorf("step %d (opcao) sem campo retorno", seq)
+			if passo.Retorno == "" {
+				return fmt.Errorf("step %d (opcao) sem campo retorno", sequencia)
 			}
-			if len(st.Opcoes) == 0 {
-				return fmt.Errorf("step %d (opcao) sem campo opcoes", seq)
+			if len(passo.Opcoes) == 0 {
+				return fmt.Errorf("step %d (opcao) sem campo opcoes", sequencia)
 			}
-			if st.Goto.IsEnd {
-				return fmt.Errorf("step %d (opcao) goto nao pode ser encerra", seq)
+			if passo.Goto.Encerra {
+				return fmt.Errorf("step %d (opcao) goto nao pode ser encerra", sequencia)
 			}
-			if _, ok := f.Steps[st.Goto.Seq]; !ok {
-				return fmt.Errorf("step %d goto %d nao existe", seq, st.Goto.Seq)
+			if _, ok := fluxo.Passos[passo.Goto.Sequencia]; !ok {
+				return fmt.Errorf("step %d goto %d nao existe", sequencia, passo.Goto.Sequencia)
 			}
-			for _, dest := range st.Opcoes {
-				if _, ok := f.Steps[dest]; !ok {
-					return fmt.Errorf("step %d opcao com goto %d nao existe", seq, dest)
+			for _, destino := range passo.Opcoes {
+				if _, ok := fluxo.Passos[destino]; !ok {
+					return fmt.Errorf("step %d opcao com goto %d nao existe", sequencia, destino)
 				}
 			}
 		default:
-			return fmt.Errorf("step %d tipo nao suportado ainda: %s", seq, st.Tipo)
+			return fmt.Errorf("step %d tipo nao suportado ainda: %s", sequencia, passo.Tipo)
 		}
 	}
 	return nil
