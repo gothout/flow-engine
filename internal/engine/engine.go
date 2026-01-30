@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"flow-engine/internal/flow"
+	"flow-engine/internal/interactions"
 	"flow-engine/internal/session"
 )
 
 type Engine struct {
-	Flow  *flow.Flow
-	Store *session.Store
+	Flow     *flow.Flow
+	Store    session.Repository
+	handlers map[flow.StepType]interactions.Handler
 }
 
 type IncomingEvent struct {
@@ -32,7 +34,15 @@ type OutMessage struct {
 }
 
 func New(f *flow.Flow, st *session.Store) *Engine {
-	return &Engine{Flow: f, Store: st}
+	eng := &Engine{
+		Flow:  f,
+		Store: st,
+	}
+	eng.handlers = map[flow.StepType]interactions.Handler{
+		flow.StepMessage: interactions.Message{},
+		flow.StepOption:  interactions.Option{},
+	}
+	return eng
 }
 
 func resolveSessionID(in IncomingEvent) (string, error) {
@@ -63,6 +73,10 @@ func (e *Engine) HandleEventStream(
 	}
 
 	sess := e.Store.GetOrCreate(sid, e.Flow.StartSeq)
+	input := interactions.Input{
+		UserText: in.Mensagem.Texto,
+	}
+	inputConsumed := false
 
 	for {
 		st, ok := e.Flow.Steps[sess.CurrentSeq]
@@ -70,37 +84,53 @@ func (e *Engine) HandleEventStream(
 			return fmt.Errorf("sequencia %d não existe no fluxo", sess.CurrentSeq)
 		}
 
-		// somente mensagem por enquanto
-		msg := OutMessage{
-			SessionID: sid,
-			Texto:     st.Mensagem,
+		if st.Tipo == flow.StepOption && inputConsumed {
+			e.Store.Save(sess)
+			return nil
 		}
 
-		// emite imediatamente
-		if err := emit(msg); err != nil {
-			return fmt.Errorf("emit falhou: %w", err)
+		handler, ok := e.handlers[st.Tipo]
+		if !ok {
+			return fmt.Errorf("tipo %s não registrado", st.Tipo)
 		}
 
-		// sleep antes de seguir para o goto
-		if st.SleepMs > 0 {
-			if err := sleep(ctx, time.Duration(st.SleepMs)*time.Millisecond); err != nil {
+		result, err := handler.Execute(st, sess, input)
+		if err != nil {
+			return err
+		}
+
+		if result.Message != "" {
+			msg := OutMessage{
+				SessionID: sid,
+				Texto:     result.Message,
+				Vars:      sess.Vars,
+			}
+			if err := emit(msg); err != nil {
+				return fmt.Errorf("emit falhou: %w", err)
+			}
+		}
+
+		if result.Sleep > 0 {
+			if err := sleep(ctx, result.Sleep); err != nil {
 				return fmt.Errorf("sleep cancelado/erro: %w", err)
 			}
 		}
 
-		if st.Goto.IsEnd {
-			// emite “done” como mensagem separada (pra não depender de alterar a anterior)
+		if result.Done {
 			if err := emit(OutMessage{SessionID: sid, Done: true}); err != nil {
 				return fmt.Errorf("emit done falhou: %w", err)
 			}
 
-			// reset pro início (seu comportamento atual)
 			sess.CurrentSeq = e.Flow.StartSeq
 			e.Store.Save(sess)
 			return nil
 		}
 
-		sess.CurrentSeq = st.Goto.Seq
+		if st.Tipo == flow.StepOption {
+			inputConsumed = true
+		}
+
+		sess.CurrentSeq = result.NextSeq
 		e.Store.Save(sess)
 	}
 }

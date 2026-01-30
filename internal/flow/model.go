@@ -11,6 +11,7 @@ type StepType string
 
 const (
 	StepMessage StepType = "mensagem"
+	StepOption  StepType = "opcao"
 )
 
 type Goto struct {
@@ -54,7 +55,11 @@ type Step struct {
 
 	// mensagem
 	Mensagem string `json:"mensagem,omitempty"`
-	Goto     Goto   `json:"goto"`
+
+	// opcao
+	Retorno string         `json:"retorno,omitempty"`
+	Opcoes  map[string]int `json:"opcoes,omitempty"`
+	Goto    Goto           `json:"goto"`
 }
 
 type Flow struct {
