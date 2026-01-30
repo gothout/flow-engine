@@ -126,12 +126,17 @@ func (e *Engine) HandleEventStream(
 			return nil
 		}
 
+		pauseAfterMessage := inputConsumed && st.Tipo == flow.StepMessage
+
 		if st.Tipo == flow.StepOption {
 			inputConsumed = true
 		}
 
 		sess.CurrentSeq = result.NextSeq
 		e.Store.Save(sess)
+		if pauseAfterMessage {
+			return nil
+		}
 	}
 }
 
